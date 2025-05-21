@@ -6,6 +6,8 @@
 
 #include <vector>
 #include <cmath>
+#include <gtkmm.h>
+
 
 double square(double x) {return x * x;}
 
@@ -57,7 +59,7 @@ double dot(const Vector& a, const Vector& b) {
 
 class Body{
 public:
-    Body(const double& mass, Vector& position, Vector& velocity) : mass(mass), position(position), velocity(velocity) {}
+    Body(const double& mass, const Vector& position, const Vector& velocity) : mass(mass), position(position), velocity(velocity) {}
     double mass;
     Vector position;
     Vector velocity;
@@ -94,37 +96,91 @@ public:
 
 };
 
-int main() {
-
-    double earthMass = 5.972e24;
-    double moonMass = 7.348e22;
-    double distance = 3.844e8;
-    double G = 6.67430e-11;
-
-    double orbitalVelocity = std::sqrt(G * earthMass / distance);
-
-    Vector earthPos(0, 0), earthVel(0, 0);
-    Vector moonPos(distance, 0);
-    Vector moonVel(0, orbitalVelocity); 
-
-    Body* earth = new Body(earthMass, earthPos, earthVel);
-    Body* moon = new Body(moonMass, moonPos, moonVel);
-
-    std::vector<Body*> bodies = { earth, moon };
-    Galaxy galaxy(bodies);
-
-    double timestep = 360;
-    int steps = 240;
-
-    for(int i = 0; i < steps; i++){
-        galaxy.simulate(timestep);
-        std::cout << "Moon at (" << moon->position[0] << ", " << moon->position[1] << ")\n";
+class GUI : public Gtk::DrawingArea {
+public:
+    GUI(Galaxy& galaxy)
+    : galaxy(galaxy) {
+        set_size_request(1000, 1000);
     }
 
+protected:
+    bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override {
+        const int w = get_allocated_width();
+        const int h = get_allocated_height();
 
+        cr->set_source_rgb(1, 1, 1);
+        cr->paint();
+        cr->translate(w / 2, h / 2);
 
-    // Free memory
+        const double scale = 1e-7;
+
+        const std::vector<std::tuple<double, double, double>> colors = {
+            {0, 0, 1},        // Blue
+            {0.5, 0.5, 0.5},  // Gray
+            {1, 0, 0},        // Red
+            {0, 1, 0},        // Green
+            {1, 0.5, 0},      // Orange
+            {0.6, 0, 0.6}    // Purple
+        };
+
+        const double radius = 8.0; 
+
+        for (size_t i = 0; i < galaxy.bodies.size(); ++i) {
+            Body* body = galaxy.bodies[i];
+            auto [r, g, b] = colors[i % colors.size()];
+            cr->set_source_rgb(r, g, b);
+
+            double x = body->position[0] * scale;
+            double y = body->position[1] * scale;
+            cr->arc(x, y, radius, 0, 2 * M_PI);
+            cr->fill();
+        }
+
+        return true;
+    }
+
+private:
+    Galaxy& galaxy;
+};
+
+class GUIWindow : public Gtk::Window {
+public:
+    GUIWindow(Galaxy& galaxy)
+    : galaxy(galaxy), gui(galaxy) {
+        set_title("N-Body Simulation");
+        set_default_size(1000, 1000);
+        add(gui);
+        gui.show();
+        Glib::signal_timeout().connect(sigc::mem_fun(*this, &GUIWindow::on_timeout), 50);
+    }
+
+protected:
+    bool on_timeout() {
+        double timestep = 3000; //5mins
+        galaxy.simulate(timestep);
+
+        gui.queue_draw();
+
+        return true;
+    }
+
+private:
+    Galaxy& galaxy;
+    GUI gui;
+};
+
+int main(int argc, char *argv[]) {
+    std::vector<Body*> bodies = {
+        new Body(5e24, Vector(0, 0), Vector(0, -3000)),     
+        new Body(7e22, Vector(3.8e8, 0), Vector(0, -2022)),  
+        new Body(2e27, Vector(-2e9, -1e9), Vector(0, 2000))
+    };
+
+    Galaxy galaxy(bodies);
+    auto app = Gtk::Application::create(argc, argv, "org.example.sim");
+    GUIWindow window(galaxy);
+    int result = app->run(window);
+
     for (auto& body : bodies) delete body;
-
-    return 0;
+    return result;
 }
