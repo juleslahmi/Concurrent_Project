@@ -75,13 +75,11 @@ public:
         for(int i = 0; i < bodies.size(); i++){
             for(int j = i+1; j < bodies.size(); j++){
                 if (i == j) continue;
-                double a1 = square(bodies[i]->position[0] - bodies[j]->position[0]);
-                double a2 = square(bodies[i]->position[1] - bodies[j]->position[1]);
-
-                double f_ij = G * bodies[i]->mass * bodies[j]->mass / (a1 + a2);
-                Vector dir = bodies[j]->position - bodies[i]->position;
-
-                Vector force = f_ij * dir;
+                Vector direction = bodies[j]->position - bodies[i]->position;
+                double distance2 = direction.norm2() + 1e-10;
+                double forceMagnitude = G * bodies[i]->mass * bodies[j]->mass / distance2;
+                direction.normalize();
+                Vector force = forceMagnitude * direction;
                 forces[i] = forces[i] + force;
                 forces[j] = forces[j] - force;
             }
@@ -115,8 +113,8 @@ int main() {
     std::vector<Body*> bodies = { earth, moon };
     Galaxy galaxy(bodies);
 
-    double timestep = 60;
-    int steps = 24000;
+    double timestep = 360;
+    int steps = 240;
 
     for(int i = 0; i < steps; i++){
         galaxy.simulate(timestep);
