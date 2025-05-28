@@ -184,3 +184,25 @@ int main(int argc, char *argv[]) {
     for (auto& body : bodies) delete body;
     return result;
 }
+
+class Point {
+public:
+    Point(double x, double y, double z, int r, int g, int b, const std::string& name)
+        : x(x), y(y), z(z), r(r), g(g), b(b), name(name) {}
+
+    double x;
+    double y;
+    double z;
+    int r;
+    int g;
+    int b;
+    std::string name;
+    const Vector& getPosition() const {
+        return Vector(x, y);
+    }
+    const Vector& getColor() const {
+        return Vector(r, g);
+    }
+    
+};
+
