@@ -12,7 +12,7 @@ bool GUI::on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
     const int w = get_allocated_width();
     const int h = get_allocated_height();
 
-    cr->set_source_rgb(1, 1, 1);  // White background
+    cr->set_source_rgb(0, 0, 0);  // White background
     cr->paint();
     cr->translate(w / 2, h / 2);  // Center the origin
 
@@ -30,13 +30,13 @@ bool GUI::on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 
     for (size_t i = 0; i < galaxy.bodies.size(); ++i) {
         Body* body = galaxy.bodies[i];
-        auto [r, g, b] = colors[i % colors.size()];
+        auto [r, g, b] = body->color;
         cr->set_source_rgb(r, g, b);
 
         double x = body->position[0] * scale;
         double y = body->position[1] * scale;
 
-        cr->arc(x, y, radius, 0, 2 * M_PI);
+        cr->arc(x, y, body->size, 0, 2 * M_PI);
         cr->fill();
     }
 
@@ -53,12 +53,12 @@ GUIWindow::GUIWindow(Galaxy& galaxy)
     gui.show();
 
     // Redraw every 50 ms
-    Glib::signal_timeout().connect(sigc::mem_fun(*this, &GUIWindow::on_timeout), 50);
+    Glib::signal_timeout().connect(sigc::mem_fun(*this, &GUIWindow::on_timeout), 100);
 }
 
 bool GUIWindow::on_timeout() {
-    double timestep = 1200; // 1 minute
-    int substeps = 200;      // simulate 10 minutes total per frame
+    double timestep = 1200;
+    int substeps = 500;
 
     for (int i = 0; i < substeps; ++i)
         galaxy.simulate(timestep, 1);
