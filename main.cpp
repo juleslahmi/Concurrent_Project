@@ -31,7 +31,7 @@ class Vector {
         double operator[](int i) const { return data[i]; };
         double& operator[](int i) { return data[i]; };
         double data[2];
-    };
+};
 
  
 Vector operator+(const Vector& a, const Vector& b) {
@@ -58,11 +58,11 @@ double dot(const Vector& a, const Vector& b) {
 
 
 class Body{
-public:
-    Body(const double& mass, const Vector& position, const Vector& velocity) : mass(mass), position(position), velocity(velocity) {}
-    double mass;
-    Vector position;
-    Vector velocity;
+    public:
+        Body(const double& mass, const Vector& position, const Vector& velocity) : mass(mass), position(position), velocity(velocity) {}
+        double mass;
+        Vector position;
+        Vector velocity;
 };
 
 std::pair<int, int> indexToPair(int k, int n) {
@@ -76,153 +76,145 @@ std::pair<int, int> indexToPair(int k, int n) {
 }
 
 
+void ConcurrentComputeForces(int start, int end, const std::vector<Body*>& bodies, std::vector<Vector>& pair_forces) {
+        static constexpr double G = 6.67430e-11;
+        int n = bodies.size();
 
-void ComputeForces(int start, int end, const std::vector<Body*>& bodies, std::vector<Vector>& forceOutput) {
-    static constexpr double G = 6.67430e-11;
-    int n = bodies.size();
-    std::vector<Vector> local_forces(n, Vector(0, 0));
+        for (int k = start; k < end; ++k) {
+            std::pair<int, int> pair = indexToPair(k, n);
+            int i = pair.first;
+            int j = pair.second;
 
-    for (int k = start; k < end; ++k) {
-        std::pair<int, int> pair = indexToPair(k, n);
-        int i = pair.first;
-        int j = pair.second;
+            Vector direction = bodies[j]->position - bodies[i]->position;
+            double distance2 = direction.norm2() + 1e-10;
+            double forceMagnitude = G * bodies[i]->mass * bodies[j]->mass / distance2;
+            direction.normalize();
+            Vector force = forceMagnitude * direction;
 
-
-        Vector direction = bodies[j]->position - bodies[i]->position;
-        double distance2 = direction.norm2() + 1e-10;
-        double forceMagnitude = G * bodies[i]->mass * bodies[j]->mass / distance2;
-        direction.normalize();
-        Vector force = forceMagnitude * direction;
-        local_forces[i] = local_forces[i] + force;
-        local_forces[j] = local_forces[j] - force;
+            pair_forces[k] = force; 
+        }
     }
-
-    for (int i = 0; i < n; ++i) {
-        forceOutput[i] = forceOutput[i] + local_forces[i];
-    }
-}
 
 class Galaxy{
-public:
-    static constexpr double G = 6.67430e-11;
-    std::vector<Body*> bodies;
-    Galaxy(std::vector<Body*>& bodies) : bodies(bodies) {}
+    public:
+        static constexpr double G = 6.67430e-11;
+        std::vector<Body*> bodies;
+        Galaxy(std::vector<Body*>& bodies) : bodies(bodies) {}
 
-    void simulate(double timestep, int num_threads){
+        void simulate(double timestep, int num_threads) {
+            int n = bodies.size();
+            int nb_pairs = n * (n - 1) / 2;
+            int block_size = nb_pairs / num_threads;
 
-        int n = bodies.size();
-        int nb_pairs = n*(n-1)/2;
+            std::vector<Vector> pair_forces(nb_pairs, Vector(0, 0));
+            std::vector<std::thread> threads(num_threads);
 
-        std::vector<Vector> forces(n, Vector(0, 0));
-        std::vector<Vector> pairs(n*(n-1)/2, Vector(0,0));
-
-        std::vector<std::thread> threads;
-        std::vector<std::vector<Vector>> thread_forces(num_threads, std::vector<Vector>(n, Vector(0, 0)));
-
-        int block_size = nb_pairs/ num_threads;
-        threads.resize(num_threads);
-        for(int i = 0; i < num_threads; i++){
-            int start = i * block_size;
-            int end = std::min(start + block_size, nb_pairs);
-            threads[i] = std::thread(ComputeForces, start, end, std::cref(bodies), std::ref(thread_forces[i]));
-
-        }
-    
-        for (auto& t : threads) {
-            if (t.joinable()) t.join();
-        }
-        for (int t = 0; t < num_threads; ++t) {
-            for (int i = 0; i < n; ++i) {
-                forces[i] = forces[i] + thread_forces[t][i];
+            for (int i = 0; i < num_threads; ++i) {
+                int start = i * block_size;
+                int end = (i == num_threads - 1) ? nb_pairs : start + block_size;
+                threads[i] = std::thread(
+                    ConcurrentComputeForces, start, end, std::cref(bodies), std::ref(pair_forces));
             }
-}
-        for (size_t i = 0; i < bodies.size(); ++i) {
-            Vector acceleration = forces[i] / bodies[i]->mass;
-            bodies[i]->velocity = bodies[i]->velocity + timestep * acceleration;
-            bodies[i]->position = bodies[i]->position + timestep * bodies[i]->velocity;
+
+            for (auto& t : threads) {
+                if (t.joinable()) t.join();
+            }
+
+            std::vector<Vector> forces(n, Vector(0, 0));
+            for (int k = 0; k < nb_pairs; ++k) {
+                auto [i, j] = indexToPair(k, n);
+                Vector f = pair_forces[k];
+                forces[i] = forces[i] + f;
+                forces[j] = forces[j] - f;
+            }
+
+            for (size_t i = 0; i < bodies.size(); ++i) {
+                Vector acceleration = forces[i] / bodies[i]->mass;
+                bodies[i]->velocity = bodies[i]->velocity + timestep * acceleration;
+                bodies[i]->position = bodies[i]->position + timestep * bodies[i]->velocity;
+            }
         }
-    }
 
 };
 
 class GUI : public Gtk::DrawingArea {
-public:
-    GUI(Galaxy& galaxy)
-    : galaxy(galaxy) {
-        set_size_request(1000, 1000);
-    }
-
-protected:
-    bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override {
-        const int w = get_allocated_width();
-        const int h = get_allocated_height();
-
-        cr->set_source_rgb(1, 1, 1);
-        cr->paint();
-        cr->translate(w / 2, h / 2);
-
-        const double scale = 1e-7;
-
-        const std::vector<std::tuple<double, double, double>> colors = {
-            {0, 0, 1},        // Blue
-            {0.5, 0.5, 0.5},  // Gray
-            {1, 0, 0},        // Red
-            {0, 1, 0},        // Green
-            {1, 0.5, 0},      // Orange
-            {0.6, 0, 0.6}    // Purple
-        };
-
-        const double radius = 8.0; 
-
-        for (size_t i = 0; i < galaxy.bodies.size(); ++i) {
-            Body* body = galaxy.bodies[i];
-            auto [r, g, b] = colors[i % colors.size()];
-            cr->set_source_rgb(r, g, b);
-
-            double x = body->position[0] * scale;
-            double y = body->position[1] * scale;
-            cr->arc(x, y, radius, 0, 2 * M_PI);
-            cr->fill();
+    public:
+        GUI(Galaxy& galaxy)
+        : galaxy(galaxy) {
+            set_size_request(1000, 1000);
         }
 
-        return true;
-    }
+    protected:
+        bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override {
+            const int w = get_allocated_width();
+            const int h = get_allocated_height();
 
-private:
-    Galaxy& galaxy;
+            cr->set_source_rgb(1, 1, 1);
+            cr->paint();
+            cr->translate(w / 2, h / 2);
+
+            const double scale = 1e-7;
+
+            const std::vector<std::tuple<double, double, double>> colors = {
+                {0, 0, 1},        // Blue
+                {0.5, 0.5, 0.5},  // Gray
+                {1, 0, 0},        // Red
+                {0, 1, 0},        // Green
+                {1, 0.5, 0},      // Orange
+                {0.6, 0, 0.6}    // Purple
+            };
+
+            const double radius = 8.0; 
+
+            for (size_t i = 0; i < galaxy.bodies.size(); ++i) {
+                Body* body = galaxy.bodies[i];
+                auto [r, g, b] = colors[i % colors.size()];
+                cr->set_source_rgb(r, g, b);
+
+                double x = body->position[0] * scale;
+                double y = body->position[1] * scale;
+                cr->arc(x, y, radius, 0, 2 * M_PI);
+                cr->fill();
+            }
+
+            return true;
+        }
+
+    private:
+        Galaxy& galaxy;
 };
 
 class GUIWindow : public Gtk::Window {
-public:
-    GUIWindow(Galaxy& galaxy)
-    : galaxy(galaxy), gui(galaxy) {
-        set_title("N-Body Simulation");
-        set_default_size(1000, 1000);
-        add(gui);
-        gui.show();
-        Glib::signal_timeout().connect(sigc::mem_fun(*this, &GUIWindow::on_timeout), 50);
-    }
+    public:
+        GUIWindow(Galaxy& galaxy)
+        : galaxy(galaxy), gui(galaxy) {
+            set_title("N-Body Simulation");
+            set_default_size(1000, 1000);
+            add(gui);
+            gui.show();
+            Glib::signal_timeout().connect(sigc::mem_fun(*this, &GUIWindow::on_timeout), 1);
+        }
 
-protected:
-    bool on_timeout() {
-        double timestep = 3000; //5mins
-        galaxy.simulate(timestep, 1);
+    protected:
+        bool on_timeout() {
+            double timestep = 1000; //5mins
+            galaxy.simulate(timestep, 1);
 
-        gui.queue_draw();
+            gui.queue_draw();
 
-        return true;
-    }
+            return true;
+        }
 
-private:
-    Galaxy& galaxy;
-    GUI gui;
+    private:
+        Galaxy& galaxy;
+        GUI gui;
 };
 
 int main(int argc, char *argv[]) {
     std::vector<Body*> bodies = {
         new Body(5e24, Vector(0, 0), Vector(0, -3000)),     
         new Body(7e22, Vector(3.8e8, 0), Vector(0, -2022)),
-        new Body(2e27, Vector(-2e9, -1e9), Vector(0, 2000))
+        new Body(2e27, Vector(-2e9, -1e9), Vector(0, 0))
     };
 
     Galaxy galaxy(bodies);
