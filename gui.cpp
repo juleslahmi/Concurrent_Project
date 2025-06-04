@@ -16,7 +16,7 @@ bool GUI::on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
     cr->paint();
     cr->translate(w / 2, h / 2);  // Center the origin
 
-    const double scale = 1e-7;
+    const double scale = 1e-10;
     const double radius = 8.0;
 
     const std::vector<std::tuple<double, double, double>> colors = {
@@ -57,10 +57,12 @@ GUIWindow::GUIWindow(Galaxy& galaxy)
 }
 
 bool GUIWindow::on_timeout() {
-    double timestep = 3000; // 5 minutes in seconds
-    galaxy.simulate(timestep, 1);  // Single-threaded for now
+    double timestep = 1200; // 1 minute
+    int substeps = 200;      // simulate 10 minutes total per frame
 
-    gui.queue_draw();  // Redraw GUI
+    for (int i = 0; i < substeps; ++i)
+        galaxy.simulate(timestep, 1);
 
-    return true;  // Keep timeout active
+    gui.queue_draw();
+    return true;
 }
