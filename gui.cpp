@@ -58,10 +58,10 @@ GUIWindow::GUIWindow(Galaxy& galaxy)
 
 bool GUIWindow::on_timeout() {
     double timestep = 300;
-    int substeps = 1;
+    int substeps = 10;
 
     for (int i = 0; i < substeps; ++i)
-        galaxy.simulate(timestep, 1);
+        galaxy.simulate(timestep, 50);
 
     gui.queue_draw();
     return true;
