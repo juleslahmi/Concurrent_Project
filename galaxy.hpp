@@ -7,12 +7,30 @@ class Galaxy {
 public:
     static constexpr double G = 6.67430e-11;
 
-    Galaxy(std::vector<Body*>& bodies);
+    // Constructor now accepts a version parameter (0 for pair forces, 1 for thread-local)
+    Galaxy(std::vector<Body*>& bodies, int version = 0);
+    
+    // Main simulate method
     void simulate(double timestep, int num_threads);
 
     std::vector<Body*> bodies;
+
+private:
+    int version;
+
+    void simulate_v0(double timestep, int num_threads);
+    void simulate_v1(double timestep, int num_threads);
+
+    void updateBodiesParallel(const std::vector<Vector>& forces, double timestep, int num_threads);
+
+    struct ThreadData {
+        std::vector<Vector> forces;
+    };
+
+    void computeForcesForThread(int n, int start, int end, std::vector<Vector>& forces);
+    void launchThreads(const int n, const int nb_pairs, int num_threads, std::vector<ThreadData>& thread_data);
 };
 
-// Helpers
+// Helper functions
 std::pair<int, int> indexToPair(int k, int n);
-void ComputeForces(int start, int end, const std::vector<Body*>& bodies, std::vector<Vector>& forceOutput);
+void ConcurrentComputeForces(int start, int end, const std::vector<Body*>& bodies, std::vector<Vector>& pair_forces);
