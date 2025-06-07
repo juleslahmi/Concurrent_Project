@@ -9,7 +9,55 @@
 #include <random>
 
 
+struct Config {
+    bool testing = false;
+    int num_bodies = 100;
+    int num_threads = 1;
+};
+
+Config parse_args(int argc, char* argv[]) {
+    Config config;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+
+        if (arg == "--testing" || arg == "-t") {
+            config.testing = true;
+        } else if (arg == "--bodies" && i + 1 < argc) {
+            config.num_bodies = std::stoi(argv[++i]);
+        } else if (arg == "--threads" && i + 1 < argc) {
+            config.num_threads = std::stoi(argv[++i]);
+        } else if (arg == "1") {
+            config.testing = true;
+        } else if (arg == "0") {
+            config.testing = false;
+        }
+    }
+
+    return config;
+}
+
+// ------------ Body Generation ------------
+std::vector<Body*> generate_bodies(int num_bodies) {
+    std::vector<Body*> bodies;
+    std::mt19937 rng(42); // fixed seed
+    std::uniform_real_distribution<double> pos_dist(-5e12, 5e12);
+    std::uniform_real_distribution<double> vel_dist(-1e8, 1e8);
+    std::uniform_real_distribution<double> mass_dist(1e20, 1e25);
+
+    for (int i = 0; i < num_bodies; ++i) {
+        double mass = mass_dist(rng);
+        Vector pos(pos_dist(rng), pos_dist(rng));
+        Vector vel(vel_dist(rng), vel_dist(rng));
+        bodies.push_back(new Body(mass, pos, vel));
+    }
+
+    return bodies;
+}
+
 int main(int argc, char *argv[]) {
+    Config config = parse_args(argc, argv);
+    std::vector<Body*> bodies = generate_bodies(config.num_bodies);
     /*
     std::vector<Body*> bodies = {
         new Body(1.989e30, Vector(0, 0), Vector(0, 0)),                 // Sun
@@ -23,34 +71,17 @@ int main(int argc, char *argv[]) {
         new Body(1.02e26, Vector(4.503e12, 0), Vector(0, 5430))         // Neptune
     };
     */
-    const int num_bodies = 1000;
-    std::vector<Body*> bodies;
-    std::mt19937 rng(42); // fixed seed for reproducibility
-    std::uniform_real_distribution<double> pos_dist(-5e12, 5e12);   // random positions
-    std::uniform_real_distribution<double> vel_dist(-1e8, 1e8);     // random velocities
-    std::uniform_real_distribution<double> mass_dist(1e20, 1e25);   // random masses
-
-    for (int i = 0; i < num_bodies; ++i) {
-        double mass = mass_dist(rng);
-        Vector pos(pos_dist(rng), pos_dist(rng));
-        Vector vel(vel_dist(rng), vel_dist(rng));
-        bodies.push_back(new Body(mass, pos, vel));
-    }
-
-    bool testing = false;
-
-    if (testing) {
+    if (config.testing) {
         Galaxy galaxy(bodies);
-        const int max_frames = 100;
-        const double timestep = 1200;
+        const int max_frames = 1000;
+        const double timestep = 300;
         const int substeps = 1;
-        const int num_threads = 4;
 
         auto start = std::chrono::high_resolution_clock::now();
 
         for (int frame = 0; frame < max_frames; ++frame) {
             for (int i = 0; i < substeps; ++i) {
-                galaxy.simulate(timestep, num_threads);
+                galaxy.simulate(timestep, config.num_threads);
             }
         }
 
@@ -58,16 +89,23 @@ int main(int argc, char *argv[]) {
         std::chrono::duration<double> duration = end - start;
 
         std::cout << "Simulated " << max_frames << " frames ("
-                << max_frames * substeps << " steps) with " << num_threads << " thread(s), in "
-                << duration.count() << " seconds.\n";
+                  << max_frames * substeps << " steps) with "
+                  << config.num_threads << " thread(s), in "
+                  << duration.count() << " seconds.\n";
 
         for (auto& body : bodies) delete body;
         return 0;
     }
 
     Galaxy galaxy(bodies);
-    auto app = Gtk::Application::create(argc, argv, "org.example.sim");
+
+    int gtk_argc = 1;
+    char* gtk_args[] = { argv[0], nullptr };
+    char** gtk_argv = gtk_args;
+
+    auto app = Gtk::Application::create(gtk_argc, gtk_argv, "org.example.sim");
     GUIWindow window(galaxy);
+    window.show();
     int result = app->run(window);
 
     for (auto& body : bodies) delete body;

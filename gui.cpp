@@ -57,8 +57,8 @@ GUIWindow::GUIWindow(Galaxy& galaxy)
 }
 
 bool GUIWindow::on_timeout() {
-    double timestep = 1200;
-    int substeps = 500;
+    double timestep = 300;
+    int substeps = 1;
 
     for (int i = 0; i < substeps; ++i)
         galaxy.simulate(timestep, 1);

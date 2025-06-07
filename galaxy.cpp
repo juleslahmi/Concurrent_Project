@@ -1,5 +1,6 @@
 #include "galaxy.hpp"
-#include <algorithm>  // For std::min
+#include <algorithm> 
+#include <iostream>
 
 // Constructor
 Galaxy::Galaxy(std::vector<Body*>& bodies)
