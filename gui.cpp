@@ -45,8 +45,8 @@ bool GUI::on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 
 // -------- GUI Window Wrapper --------
 
-GUIWindow::GUIWindow(Galaxy& galaxy)
-    : galaxy(galaxy), gui(galaxy) {
+GUIWindow::GUIWindow(Galaxy& galaxy, int num_threads)
+    : galaxy(galaxy), gui(galaxy), num_threads(num_threads) {
     set_title("N-Body Simulation");
     set_default_size(1000, 1000);
     add(gui);
@@ -61,7 +61,7 @@ bool GUIWindow::on_timeout() {
     int substeps = 10;
 
     for (int i = 0; i < substeps; ++i)
-        galaxy.simulate(timestep, 50);
+        galaxy.simulate(timestep, num_threads);
 
     gui.queue_draw();
     return true;

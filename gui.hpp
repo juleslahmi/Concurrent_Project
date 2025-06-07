@@ -15,7 +15,7 @@ private:
 
 class GUIWindow : public Gtk::Window {
 public:
-    explicit GUIWindow(Galaxy& galaxy);
+    explicit GUIWindow(Galaxy& galaxy, int num_threads);
 
 protected:
     bool on_timeout();
@@ -23,4 +23,5 @@ protected:
 private:
     Galaxy& galaxy;
     GUI gui;
+    int num_threads;
 };
