@@ -11,8 +11,8 @@
 
 struct Config {
     bool testing = false;
-    int num_bodies = 100;
-    int num_threads = 1;
+    int num_bodies = 1000;
+    int num_threads = 10;
     int version = 1;  // Add version parameter (default: 0)
 };
 

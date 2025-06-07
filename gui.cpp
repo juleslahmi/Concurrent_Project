@@ -53,7 +53,7 @@ GUIWindow::GUIWindow(Galaxy& galaxy)
     gui.show();
 
     // Redraw every 50 ms
-    Glib::signal_timeout().connect(sigc::mem_fun(*this, &GUIWindow::on_timeout), 100);
+    Glib::signal_timeout().connect(sigc::mem_fun(*this, &GUIWindow::on_timeout), 50);
 }
 
 bool GUIWindow::on_timeout() {
