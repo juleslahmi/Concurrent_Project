@@ -10,10 +10,8 @@ class Galaxy {
 public:
     static constexpr double G = 6.67430e-11;
 
-    // Constructor now accepts a version parameter (0 for pair forces, 1 for thread-local)
     Galaxy(std::vector<Body*>& bodies, int version = 0);
-    
-    // Main simulate method
+
     void simulate(double timestep, int num_threads);
 
     std::vector<Body*> bodies;

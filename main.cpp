@@ -15,7 +15,7 @@ struct Config {
     bool testing = false;
     int num_bodies = 1000;
     int num_threads = 10;
-    int version = 1;  // Add version parameter (default: 0)
+    int version = 1;  // 0 = simulate_v0, 1 = simulate_v1
 };
 
 Config parse_args(int argc, char* argv[]) {
@@ -30,8 +30,6 @@ Config parse_args(int argc, char* argv[]) {
             config.num_bodies = std::stoi(argv[++i]);
         } else if (arg == "--threads" && i + 1 < argc) {
             config.num_threads = std::stoi(argv[++i]);
-        } else if (arg == "--version" && i + 1 < argc) {
-            config.version = std::stoi(argv[++i]);
         } else if (arg == "1") {
             config.testing = true;
         } else if (arg == "0") {
@@ -111,7 +109,6 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    // For non-testing mode, use version 0 by default
     Galaxy galaxy(bodies, config.version);
 
     int gtk_argc = 1;
